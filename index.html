@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>K-SOS | 고려폴리머 스마트 오더 시스템</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif; background: #f0f2f5; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; padding: 20px 12px; }
+
+  .app-wrapper { width: 100%; max-width: 480px; display: flex; flex-direction: column; gap: 0; }
+
+  /* Header */
+  .header { background: #1a3a5c; color: #fff; border-radius: 16px 16px 0 0; padding: 18px 20px 14px; display: flex; align-items: center; gap: 12px; }
+  .header-logo { width: 40px; height: 40px; background: #fff; border-radius: 10px; display: flex; align-items: center; justify-content: center; }
+  .header-logo span { font-size: 18px; font-weight: 800; color: #1a3a5c; letter-spacing: -1px; }
+  .header-info h1 { font-size: 15px; font-weight: 600; color: #fff; }
+  .header-info p { font-size: 12px; color: rgba(255,255,255,0.7); margin-top: 2px; }
+  .header-status { margin-left: auto; display: flex; align-items: center; gap: 5px; font-size: 11px; color: rgba(255,255,255,0.8); }
+  .status-dot { width: 7px; height: 7px; border-radius: 50%; background: #4ade80; animation: pulse 2s infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+  /* Chat area */
+  .chat-area { background: #fff; flex: 1; min-height: 440px; max-height: 520px; overflow-y: auto; padding: 16px 14px; display: flex; flex-direction: column; gap: 10px; border-left: 1px solid #e5e7eb; border-right: 1px solid #e5e7eb; }
+  .chat-area::-webkit-scrollbar { width: 4px; }
+  .chat-area::-webkit-scrollbar-track { background: transparent; }
+  .chat-area::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+
+  /* Messages */
+  .msg { display: flex; gap: 8px; animation: fadeIn 0.25s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+  .msg.bot { align-items: flex-end; }
+  .msg.user { flex-direction: row-reverse; }
+  .avatar { width: 30px; height: 30px; border-radius: 50%; background: #1a3a5c; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .avatar span { font-size: 12px; color: #fff; font-weight: 600; }
+  .bubble { max-width: 82%; padding: 10px 13px; border-radius: 14px; font-size: 13.5px; line-height: 1.55; }
+  .msg.bot .bubble { background: #f1f5f9; color: #1e293b; border-bottom-left-radius: 4px; }
+  .msg.user .bubble { background: #1a3a5c; color: #fff; border-bottom-right-radius: 4px; }
+
+  /* Quick replies */
+  .quick-replies { display: flex; flex-wrap: wrap; gap: 7px; padding: 4px 0 2px; }
+  .qr-btn { background: #fff; border: 1.5px solid #1a3a5c; color: #1a3a5c; border-radius: 20px; padding: 6px 14px; font-size: 12.5px; cursor: pointer; transition: all 0.15s; font-family: inherit; }
+  .qr-btn:hover { background: #1a3a5c; color: #fff; }
+  .qr-btn:active { transform: scale(0.97); }
+
+  /* Input area */
+  .input-area { background: #fff; border: 1px solid #e5e7eb; border-top: none; border-radius: 0 0 16px 16px; padding: 12px 14px; display: flex; gap: 8px; align-items: flex-end; }
+  .input-area input { flex: 1; border: 1px solid #d1d5db; border-radius: 22px; padding: 9px 15px; font-size: 14px; outline: none; font-family: inherit; color: #1e293b; }
+  .input-area input:focus { border-color: #1a3a5c; }
+  .send-btn { width: 38px; height: 38px; border-radius: 50%; background: #1a3a5c; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: background 0.15s; }
+  .send-btn:hover { background: #243f5e; }
+  .send-btn svg { width: 16px; height: 16px; fill: #fff; }
+
+  /* Stock badge */
+  .stock-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 10px; margin-left: 4px; font-weight: 600; }
+  .stock-ok { background: #dcfce7; color: #166534; }
+  .stock-warn { background: #fef9c3; color: #854d0e; }
+  .stock-out { background: #fee2e2; color: #991b1b; }
+
+  /* Footer note */
+  .footer-note { text-align: center; font-size: 11px; color: #9ca3af; padding: 10px 0 4px; }
+  .footer-note a { color: #1a3a5c; text-decoration: none; }
+
+  /* Typing indicator */
+  .typing { display: flex; gap: 4px; align-items: center; padding: 8px 4px; }
+  .typing span { width: 7px; height: 7px; border-radius: 50%; background: #94a3b8; animation: bounce 1.2s infinite; }
+  .typing span:nth-child(2) { animation-delay: 0.2s; }
+  .typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes bounce { 0%,60%,100% { transform: translateY(0); } 30% { transform: translateY(-6px); } }
+
+  /* Reset btn */
+  .reset-area { text-align: center; padding: 6px 0 2px; }
+  .reset-btn { background: none; border: none; font-size: 11.5px; color: #6b7280; cursor: pointer; text-decoration: underline; font-family: inherit; }
+
+  /* Back button */
+  .back-bar { display: flex; gap: 8px; padding: 4px 0 2px; }
+  .back-btn { background: none; border: 1px solid #d1d5db; color: #6b7280; border-radius: 16px; padding: 5px 12px; font-size: 12px; cursor: pointer; font-family: inherit; display: flex; align-items: center; gap: 4px; transition: all 0.15s; }
+  .back-btn:hover { border-color: #1a3a5c; color: #1a3a5c; }
+
+  /* Stock badge inline (버튼 내부용) */
+  .badge-ok { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 600; background: #dcfce7; color: #166534; }
+  .badge-warn { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 600; background: #fef9c3; color: #854d0e; }
+  .badge-out { display: inline-block; font-size: 10px; padding: 1px 6px; border-radius: 8px; margin-left: 4px; font-weight: 600; background: #fee2e2; color: #991b1b; }
+
+  /* 메인으로 버튼 */
+  .home-btn { display: inline-flex; align-items: center; gap: 5px; background: #1a3a5c; color: #fff; border: none; border-radius: 20px; padding: 7px 16px; font-size: 13px; cursor: pointer; font-family: inherit; margin-top: 4px; transition: background 0.15s; }
+  .home-btn:hover { background: #243f5e; }
+
+  /* 재단주문 입력 안내박스 */
+  .custom-notice { background: #f0f7ff; border: 1px solid #bdd7f5; border-radius: 10px; padding: 10px 13px; font-size: 12.5px; line-height: 1.7; color: #1e3a5f; margin-top: 4px; }
+
+</style>
+</head>
+<body>
+<div class="app-wrapper">
+  <div class="header">
+    <div class="header-logo"><span>KP</span></div>
+    <div class="header-info">
+      <h1>고려폴리머 K-SOS</h1>
+      <p>Smart Order System · 반룡지점</p>
+    </div>
+    <div class="header-status">
+      <div class="status-dot"></div>
+      <span>실시간 재고</span>
+    </div>
+  </div>
+
+  <div class="chat-area" id="chatArea"></div>
+
+  <div class="input-area">
+    <input type="text" id="userInput" placeholder="메시지를 입력하세요..." autocomplete="off" />
+    <button class="send-btn" onclick="handleSend()">
+      <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+    </button>
+  </div>
+
+  <div class="footer-note">
+    문의: <a href="tel:051-000-0000">051-000-0000</a> · <a href="http://www.lexan-korea.co.kr" target="_blank">lexan-korea.co.kr</a>
+  </div>
+</div>
+
+<script>
+const INVENTORY = {"PC":[{"품명":"표준","색상":"투명","두께":"0.5","가로":"Sa1000","세로":"2000","현재고":724},{"품명":"표준","색상":"투명","두께":"0.8","가로":"Sa1000","세로":"2000","현재고":300},{"품명":"표준","색상":"투명","두께":"0.8","가로":"Sa1000","세로":"2000","현재고":166},{"품명":"표준","색상":"투명","두께":"1","가로":"Sa1000","세로":"2000","현재고":29},{"품명":"표준","색상":"투명","두께":"1","가로":"에1220","세로":"2440","현재고":2},{"품명":"표준","색상":"투명","두께":"2","가로":"에1000","세로":"2000","현재고":21},{"품명":"표준","색상":"투명","두께":"2","가로":"에1220","세로":"2440","현재고":51},{"품명":"표준","색상":"투명","두께":"3","가로":"에1000","세로":"2000","현재고":30},{"품명":"표준","색상":"투명","두께":"3","가로":"프1000","세로":"2000","현재고":9},{"품명":"표준","색상":"투명","두께":"3","가로":"에1220","세로":"2440","현재고":35},{"품명":"표준","색상":"투명","두께":"3","가로":"프1220","세로":"3200","현재고":42},{"품명":"표준","색상":"투명","두께":"3","가로":"프1200","세로":"3000","현재고":16},{"품명":"표준","색상":"투명","두께":"3","가로":"에1520","세로":"2440","현재고":33},{"품명":"표준","색상":"투명","두께":"3","가로":"에1520","세로":"3040","현재고":3},{"품명":"표준","색상":"투명","두께":"3","가로":"에2000","세로":"4000","현재고":15},{"품명":"표준","색상":"투명","두께":"5","가로":"에1220","세로":"2440","현재고":5},{"품명":"표준","색상":"투명","두께":"4.5","가로":"에1000","세로":"2000","현재고":28},{"품명":"표준","색상":"투명","두께":"4.5","가로":"에1220","세로":"2440","현재고":24},{"품명":"표준","색상":"투명","두께":"4.5","가로":"에1520","세로":"3040","현재고":2},{"품명":"표준","색상":"투명","두께":"4.5","가로":"에1220","세로":"4000","현재고":11},{"품명":"표준","색상":"투명","두께":"8","가로":"에1000","세로":"2000","현재고":2},{"품명":"표준","색상":"투명","두께":"8","가로":"에1220","세로":"2440","현재고":15},{"품명":"표준","색상":"투명","두께":"10","가로":"1220","세로":"2440","현재고":13},{"품명":"표준","색상":"투명","두께":"15","가로":"에1220","세로":"2440","현재고":6},{"품명":"표준","색상":"광확산","두께":"1.8","가로":"에1220","세로":"2440","현재고":17},{"품명":"표준","색상":"광확산","두께":"2","가로":"에1000","세로":"2000","현재고":25},{"품명":"표준","색상":"광확산","두께":"2","가로":"에2000","세로":"4000","현재고":16},{"품명":"표준","색상":"광확산","두께":"3","가로":"에1000","세로":"2000","현재고":17},{"품명":"표준","색상":"광확산","두께":"3","가로":"에1220","세로":"2440","현재고":31},{"품명":"표준","색상":"광확산","두께":"3","가로":"에2000","세로":"4000","현재고":7},{"품명":"표준","색상":"광확산","두께":"3","가로":"에1520","세로":"3040","현재고":15},{"품명":"표준","색상":"광확산","두께":"4.5","가로":"프1000","세로":"2000","현재고":13},{"품명":"표준","색상":"광확산","두께":"4.5","가로":"에1000","세로":"2000","현재고":7},{"품명":"표준","색상":"광확산","두께":"4.5","가로":"에1220","세로":"2440","현재고":36},{"품명":"표준","색상":"광확산","두께":"4.5","가로":"에1520","세로":"3040","현재고":11},{"품명":"표준","색상":"광확산","두께":"4.5","가로":"에2000","세로":"4000","현재고":7},{"품명":"표준","색상":"백색","두께":"2","가로":"에1220","세로":"2440","현재고":15},{"품명":"표준","색상":"백색","두께":"4.5","가로":"에1220","세로":"2440","현재고":5},{"품명":"표준","색상":"브라운","두께":"3","가로":"에1000","세로":"2000","현재고":12},{"품명":"표준","색상":"브라운","두께":"3","가로":"에1220","세로":"2440","현재고":19},{"품명":"표준","색상":"진그린","두께":"3","가로":"1220","세로":"2440","현재고":8},{"품명":"표준","색상":"진그린","두께":"3","가로":"에1000","세로":"2000","현재고":18},{"품명":"표준","색상":"진그린","두께":"4.5","가로":"에1220","세로":"2440","현재고":15},{"품명":"표준","색상":"청색","두께":"3","가로":"에1000","세로":"2000","현재고":9},{"품명":"표준","색상":"청색","두께":"3","가로":"1220","세로":"2440","현재고":9},{"품명":"표준","색상":"청색","두께":"4.5","가로":"에1220","세로":"2440","현재고":2},{"품명":"표준","색상":"청색","두께":"4.5","가로":"에1000","세로":"2000","현재고":3},{"품명":"엠보","색상":"투명","두께":"2","가로":"에1220","세로":"2440","현재고":10},{"품명":"엠보","색상":"투명","두께":"3","가로":"에1000","세로":"2000","현재고":3},{"품명":"엠보","색상":"투명","두께":"4.5","가로":"에1000","세로":"2000","현재고":2},{"품명":"엠보","색상":"투명","두께":"4.5","가로":"에1220","세로":"2440","현재고":2},{"품명":"엠보","색상":"광확산","두께":"1.5","가로":"1220","세로":"2440","현재고":27}],"렉산":[{"제품":"EXELLD","색상":"투명","두께":"15","규격":"2050*3050","현재고":20},{"제품":"MR5E","색상":"투명","두께":"9.5","규격":"2000*3000","현재고":6},{"제품":"MR5E","색상":"그레이","두께":"6","규격":"2000*3000","현재고":3},{"제품":"MR10","색상":"투명","두께":"12.7","규격":"1219*2439","현재고":17},{"제품":"SGC100-12","색상":"투명","두께":"4.5","규격":"1800*1800","현재고":4},{"제품":"렉산9030","색상":"투명","두께":"1.5","규격":"1250*2050","현재고":4},{"제품":"렉산9030","색상":"투명","두께":"2","규격":"2050*3050","현재고":5},{"제품":"W9038","색상":"그레이","두께":"8","규격":"2000*2450","현재고":153},{"제품":"광확산","색상":"2","두께":"2050","규격":"4000","현재고":72},{"제품":"광확산","색상":"3","두께":"2050","규격":"4000","현재고":36},{"제품":"광확산","색상":"4.5","두께":"2050","규격":"4000","현재고":29},{"제품":"투명","색상":"3","두께":"2050","규격":"3050","현재고":31},{"제품":"투명","색상":"5","두께":"1220","규격":"2440","현재고":11},{"제품":"투명","색상":"3","두께":"2000","규격":"2920","현재고":61},{"제품":"투명","색상":"3","두께":"2050","규격":"3050","현재고":141},{"제품":"투명","색상":"4.5","두께":"2050","규격":"3050","현재고":124},{"제품":"투명","색상":"4.5","두께":"2050","규격":"4000","현재고":77},{"제품":"투명","색상":"3","두께":"2050","규격":"3050","현재고":130},{"제품":"투명","색상":"4.5","두께":"2050","규격":"3050","현재고":114},{"제품":"EXELLD","색상":"연그린","두께":"8","규격":"2050*2360","현재고":3},{"제품":"EXELLD","색상":"브론즈","두께":"5","규격":"2050*3050","현재고":3},{"제품":"EXTRITE1","색상":"연그린","두께":"8","규격":"2050*2360","현재고":5},{"제품":"EXTRITE1","색상":"연그린","두께":"5","규격":"1250*1450","현재고":14},{"제품":"EXTRITE1","색상":"연그린","두께":"5","규격":"800*1450","현재고":12},{"제품":"EXTRITE2","색상":"투명","두께":"6","규격":"2050*3050","현재고":3},{"제품":"난연PC","색상":"흑색","두께":"3","규격":"2050*2600","현재고":5},{"제품":"난연PC","색상":"흑색","두께":"4","규격":"2050*2600","현재고":5}],"복층판":[{"구분":"렉산","제품":"LTC","색상":"백색","두께":"16T","규격":"2.1*11.8M","현재고":7},{"구분":"렉산","제품":"LTC","색상":"투명","두께":"16T","규격":"2.1*11.8","현재고":20},{"구분":"렉산","제품":"LTC","색상":"백색","두께":"10T","규격":"1.0*11.8M","현재고":44},{"구분":"렉산","제품":"LTC","색상":"백색","두께":"10T","규격":"2.1*11.8M","현재고":95},{"구분":"렉산","제품":"LTC","색상":"투명","두께":"10T","규격":"2.1*11.8M","현재고":51},{"구분":"렉산","제품":"LTC","색상":"브라운","두께":"10T","규격":"2.1*11.8M","현재고":69},{"구분":"렉산","제품":"LTC","색상":"녹색","두께":"10T","규격":"2.1*11.8M","현재고":54},{"구분":"렉산","제품":"LTC","색상":"청색","두께":"10T","규격":"2.1*11.8M","현재고":40},{"구분":"렉산","제품":"LTC","색상":"투명","두께":"6T","규격":"2.1*11.8M","현재고":15},{"구분":"렉산","제품":"LTC","색상":"메탈그레이","두께":"10T","규격":"2.1*11.8M","현재고":20},{"구분":"에스폴","제품":"복층판","색상":"투명","두께":"6T","규격":"0.85*6.0M","현재고":3},{"구분":"동신","제품":"LTC","색상":"오팔화이트","두께":"10","규격":"1.0*7M","현재고":77},{"구분":"동신","제품":"LTC","색상":"투명","두께":"10","규격":"1.0*7M","현재고":53},{"구분":"동신","제품":"LTC","색상":"브라운","두께":"10","규격":"1.0*7M","현재고":151},{"구분":"동신","제품":"LTC","색상":"청색","두께":"10","규격":"1.0*7M","현재고":28},{"구분":"동신","제품":"LTC","색상":"그린","두께":"10","규격":"1.0*5M","현재고":27},{"구분":"동신","제품":"LTC","색상":"연스모그","두께":"10","규격":"1.0*5M","현재고":30}],"포마트":[{"구분":"일반","색상":"백색","두께":"1","규격":"3*6","현재고":540},{"구분":"일반","색상":"백색","두께":"1","규격":"4*8","현재고":150},{"구분":"일반","색상":"백색","두께":"2","규격":"3*6","현재고":243},{"구분":"일반","색상":"백색","두께":"2","규격":"4*8","현재고":204},{"구분":"일반","색상":"백색","두께":"3","규격":"3*6","현재고":208},{"구분":"일반","색상":"백색","두께":"3","규격":"4*8","현재고":310},{"구분":"일반","색상":"백색","두께":"5","규격":"3*6","현재고":21},{"구분":"일반","색상":"백색","두께":"5","규격":"4*8","현재고":105},{"구분":"일반","색상":"백색","두께":"8","규격":"3*6","현재고":14},{"구분":"일반","색상":"백색","두께":"8","규격":"4*8","현재고":14},{"구분":"일반","색상":"백색","두께":"10","규격":"4*8","현재고":55},{"구분":"일반","색상":"백색","두께":"15","규격":"4*8","현재고":3},{"구분":"일반","색상":"백색","두께":"19","규격":"4*8","현재고":11},{"구분":"일반","색상":"흑색","두께":"1","규격":"3*6","현재고":153},{"구분":"일반","색상":"흑색","두께":"1","규격":"4*8","현재고":109},{"구분":"일반","색상":"흑색","두께":"2","규격":"3*6","현재고":94},{"구분":"일반","색상":"흑색","두께":"2","규격":"4*8","현재고":87},{"구분":"일반","색상":"흑색","두께":"3","규격":"3*6","현재고":22},{"구분":"일반","색상":"흑색","두께":"3","규격":"4*8","현재고":66},{"구분":"일반","색상":"흑색","두께":"5","규격":"3*6","현재고":35},{"구분":"일반","색상":"흑색","두께":"5","규격":"4*8","현재고":45},{"구분":"일반","색상":"흑색","두께":"8","규격":"3*6","현재고":26},{"구분":"일반","색상":"흑색","두께":"8","규격":"4*8","현재고":12},{"구분":"일반","색상":"흑색","두께":"10","규격":"3*6","현재고":8},{"구분":"일반","색상":"흑색","두께":"10","규격":"4*8","현재고":19},{"구분":"일반","색상":"청색","두께":"3","규격":"3*6","현재고":18},{"구분":"일반","색상":"청색","두께":"3","규격":"4*8","현재고":15},{"구분":"일반","색상":"청색","두께":"5","규격":"3*6","현재고":10},{"구분":"일반","색상":"청색","두께":"5","규격":"4*8","현재고":4},{"구분":"일반","색상":"청색","두께":"8","규격":"4*8","현재고":19},{"구분":"일반","색상":"녹색","두께":"3","규격":"3*6","현재고":5},{"구분":"일반","색상":"녹색","두께":"3","규격":"4*8","현재고":14},{"구분":"일반","색상":"녹색","두께":"5","규격":"3*6","현재고":8},{"구분":"일반","색상":"녹색","두께":"5","규격":"4*8","현재고":9},{"구분":"일반","색상":"녹색","두께":"10","규격":"4*8","현재고":32},{"구분":"일반","색상":"적색","두께":"1","규격":"4*8","현재고":19},{"구분":"일반","색상":"적색","두께":"2","규격":"4*8","현재고":20},{"구분":"일반","색상":"적색","두께":"3","규격":"3*6","현재고":19},{"구분":"일반","색상":"적색","두께":"3","규격":"4*8","현재고":12},{"구분":"일반","색상":"적색","두께":"5","규격":"3*6","현재고":20},{"구분":"일반","색상":"적색","두께":"5","규격":"4*8","현재고":19},{"구분":"일반","색상":"회색","두께":"1","규격":"4*8","현재고":105},{"구분":"일반","색상":"회색","두께":"2","규격":"4*8","현재고":34},{"구분":"일반","색상":"회색","두께":"3","규격":"3*6","현재고":38},{"구분":"일반","색상":"회색","두께":"3","규격":"4*8","현재고":4},{"구분":"일반","색상":"회색","두께":"5","규격":"3*6","현재고":9},{"구분":"일반","색상":"회색","두께":"5","규격":"4*8","현재고":6},{"구분":"일반","색상":"노랑","두께":"2","규격":"3*6","현재고":5},{"구분":"일반","색상":"노랑","두께":"3","규격":"4*8","현재고":35}],"아크릴":[{"구분":"압출","색상":"투명","두께":"2","규격":"3*6","현재고":17},{"구분":"압출","색상":"투명","두께":"2","규격":"4*8","현재고":47},{"구분":"압출","색상":"투명","두께":"3","규격":"3*6","현재고":39},{"구분":"압출","색상":"투명","두께":"3","규격":"4*8","현재고":17},{"구분":"압출","색상":"투명","두께":"5","규격":"3*6","현재고":27},{"구분":"압출","색상":"투명","두께":"5","규격":"4*8","현재고":36},{"구분":"압출","색상":"투명","두께":"8","규격":"3*6","현재고":48},{"구분":"압출","색상":"투명","두께":"8","규격":"4*8","현재고":9},{"구분":"압출","색상":"투명","두께":"10","규격":"3*6","현재고":8},{"구분":"압출","색상":"투명","두께":"10","규격":"4*8","현재고":13},{"구분":"압출","색상":"백색","두께":"2","규격":"3*6","현재고":21},{"구분":"압출","색상":"백색","두께":"2","규격":"4*8","현재고":15},{"구분":"압출","색상":"백색","두께":"3","규격":"3*6","현재고":16},{"구분":"압출","색상":"백색","두께":"3","규격":"4*8","현재고":17},{"구분":"압출","색상":"백색","두께":"5","규격":"3*6","현재고":10},{"구분":"압출","색상":"백색","두께":"5","규격":"4*8","현재고":28},{"구분":"압출","색상":"백색","두께":"8","규격":"3*6","현재고":2},{"구분":"압출","색상":"백색","두께":"8","규격":"4*8","현재고":7},{"구분":"압출","색상":"백색","두께":"10","규격":"3*6","현재고":2},{"구분":"압출","색상":"백색","두께":"10","규격":"4*8","현재고":6},{"구분":"압출","색상":"은색펄","두께":"3","규격":"3*6","현재고":4},{"구분":"캐스팅","색상":"투명","두께":"4","규격":"4*8","현재고":5},{"구분":"캐스팅","색상":"투명","두께":"2","규격":"3*6","현재고":22},{"구분":"캐스팅","색상":"투명","두께":"3","규격":"4*8","현재고":20},{"구분":"캐스팅","색상":"투명","두께":"5","규격":"3*6","현재고":4},{"구분":"캐스팅","색상":"투명","두께":"5","규격":"4*8","현재고":29},{"구분":"캐스팅","색상":"투명","두께":"8","규격":"3*6","현재고":4},{"구분":"캐스팅","색상":"투명","두께":"10","규격":"3*6","현재고":2},{"구분":"캐스팅","색상":"백색","두께":"10","규격":"4*8","현재고":19},{"구분":"캐스팅","색상":"백색","두께":"15","규격":"4*8","현재고":2},{"구분":"캐스팅","색상":"골백","두께":"2","규격":"3*6","현재고":9},{"구분":"캐스팅","색상":"골백","두께":"3","규격":"3*6","현재고":22},{"구분":"캐스팅","색상":"골백","두께":"3","규격":"4*8","현재고":9},{"구분":"캐스팅","색상":"골백","두께":"5","규격":"4*8","현재고":10},{"구분":"캐스팅","색상":"골백","두께":"8","규격":"3*6","현재고":7},{"구분":"캐스팅","색상":"골백","두께":"8","규격":"4*8","현재고":5},{"구분":"캐스팅","색상":"골백","두께":"10","규격":"3*6","현재고":7},{"구분":"캐스팅","색상":"골백","두께":"10","규격":"4*8","현재고":8},{"구분":"캐스팅","색상":"골무광","두께":"3","규격":"3*6","현재고":18},{"구분":"캐스팅","색상":"골무광","두께":"5","규격":"3*6","현재고":8},{"구분":"캐스팅","색상":"골무광","두께":"5","규격":"4*8","현재고":2},{"구분":"캐스팅","색상":"흑색","두께":"2","규격":"3*6","현재고":6},{"구분":"캐스팅","색상":"흑색","두께":"3","규격":"3*6","현재고":2},{"구분":"캐스팅","색상":"흑색","두께":"3","규격":"4*8","현재고":11},{"구분":"캐스팅","색상":"흑색","두께":"5","규격":"3*6","현재고":1},{"구분":"캐스팅","색상":"흑색","두께":"5","규격":"4*8","현재고":4},{"구분":"캐스팅","색상":"흑색","두께":"8","규격":"3*6","현재고":6},{"구분":"캐스팅","색상":"흑색","두께":"8","규격":"4*8","현재고":7},{"구분":"캐스팅","색상":"흑색","두께":"10","규격":"3*6","현재고":4},{"구분":"캐스팅","색상":"흑색","두께":"10","규격":"4*8","현재고":7},{"구분":"캐스팅","색상":"흑투","두께":"2","규격":"3*6","현재고":4},{"구분":"캐스팅","색상":"흑색   무광","두께":"3","규격":"3*6","현재고":18},{"구분":"캐스팅","색상":"흑색   무광","두께":"5","규격":"3*6","현재고":19},{"구분":"캐스팅","색상":"청색","두께":"3","규격":"4*8","현재고":14},{"구분":"캐스팅","색상":"하늘색","두께":"3","규격":"3*6","현재고":1},{"구분":"캐스팅","색상":"적색","두께":"3","규격":"1*2","현재고":22},{"구분":"캐스팅","색상":"적색","두께":"5","규격":"3*6","현재고":3},{"구분":"캐스팅","색상":"브라운","두께":"10","규격":"4*8","현재고":2},{"구분":"캐스팅","색상":"황색","두께":"2","규격":"3*6","현재고":28},{"구분":"캐스팅","색상":"황색","두께":"3","규격":"3*6","현재고":11},{"구분":"캐스팅","색상":"쓰리","두께":"2","규격":"3*6","현재고":25},{"구분":"캐스팅","색상":"쓰리","두께":"3","규격":"3*6","현재고":9},{"구분":"캐스팅","색상":"쓰리","두께":"3","규격":"4*8","현재고":9},{"구분":"캐스팅","색상":"쓰리","두께":"5","규격":"3*6","현재고":7},{"구분":"캐스팅","색상":"쓰리","두께":"5","규격":"4*8","현재고":11},{"구분":"캐스팅","색상":"쓰리","두께":"8","규격":"3*6","현재고":8},{"구분":"캐스팅","색상":"쓰리","두께":"8","규격":"4*8","현재고":4},{"구분":"캐스팅","색상":"쓰리","두께":"10","규격":"3*6","현재고":2},{"구분":"캐스팅","색상":"쓰리","두께":"15","규격":"4*8","현재고":1},{"구분":"캐스팅","색상":"한지","두께":"2","규격":"3*6","현재고":19},{"구분":"캐스팅","색상":"한지","두께":"2","규격":"4*8","현재고":17},{"구분":"캐스팅","색상":"한지","두께":"3","규격":"3*6","현재고":12},{"구분":"캐스팅","색상":"한지","두께":"3","규격":"4*8","현재고":14},{"구분":"캐스팅","색상":"한지","두께":"5","규격":"3*6","현재고":10}]};
+
+const PRODUCTS = {
+  '1': { name: 'PC (폴리카보네이트)', key: 'PC', type: 'pc' },
+  '2': { name: '렉산 (LEXAN)', key: '렉산', type: 'lexan' },
+  '3': { name: '복층판', key: '복층판', type: 'mw' },
+  '4': { name: '포마트', key: '포마트', type: 'fomat' },
+  '5': { name: '아크릴', key: '아크릴', type: 'acrylic' },
+};
+
+let session = { state: 'INIT', data: {} };
+let orderLog = [];
+
+function unique(arr, key) {
+  return [...new Set(arr.map(i => String(i[key]).trim()))].filter(v => v && !['합계','압출 합계','재생합계'].some(x => v.includes(x)));
+}
+
+// 가로/세로 접두어(에, 프, Sa 등) 제거 → 순수 숫자 규격만 표시
+function cleanDim(v) {
+  return String(v).replace(/^[가-힣A-Za-z]+/, '').trim();
+}
+
+// 규격 문자열 정리 (복층판 규격 등)
+function cleanSpec(v) {
+  return String(v).trim();
+}
+
+const CUSTOM_NOTICE = `재단 치수를 <b>가로 × 세로 (mm 기준)</b>으로 입력해 주세요.<br>` +
+  `<div class="custom-notice">` +
+  `예) 500 × 800<br>` +
+  `비규격(도면 필요) 제품은 웹하드로 도면 업로드 후 문의해 주세요.<br>` +
+  `<b>웹하드</b> ID: <b>lexankorea</b> / PW: <b>8520</b><br>` +
+  `📞 051-644-8877 &nbsp;·&nbsp; 010-8025-5575` +
+  `</div>`;
+
+
+function getItems(key, filters) {
+  let items = INVENTORY[key] || [];
+  for (const [k, v] of Object.entries(filters)) {
+    items = items.filter(i => String(i[k]).trim() === String(v).trim());
+  }
+  return items.filter(i => !String(i['색상'] || '').includes('합계') && !String(i['구분'] || '').includes('합계'));
+}
+
+function addMsg(text, isUser) {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = 'msg ' + (isUser ? 'user' : 'bot');
+  if (!isUser) {
+    div.innerHTML = `<div class="avatar"><span>KP</span></div><div class="bubble">${text}</div>`;
+  } else {
+    div.innerHTML = `<div class="bubble">${text}</div>`;
+  }
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function addQuickReplies(options, onSelect, showBack) {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'display:flex;flex-direction:column;gap:6px;';
+
+  if (showBack) {
+    const backBar = document.createElement('div');
+    backBar.className = 'back-bar';
+    const backBtn = document.createElement('button');
+    backBtn.className = 'back-btn';
+    backBtn.innerHTML = '&#8592; 뒤로';
+    backBtn.onclick = () => { div.remove(); goBack(); };
+    backBar.appendChild(backBtn);
+    wrapper.appendChild(backBar);
+  }
+
+  const qr = document.createElement('div');
+  qr.className = 'quick-replies';
+  options.forEach(opt => {
+    const btn = document.createElement('button');
+    btn.className = 'qr-btn';
+    if (opt.html) { btn.innerHTML = opt.html; } else { btn.textContent = opt.label; }
+    btn.onclick = () => {
+      div.remove();
+      onSelect(opt.value !== undefined ? opt.value : opt.label, opt.label);
+    };
+    qr.appendChild(btn);
+  });
+  wrapper.appendChild(qr);
+  div.appendChild(wrapper);
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function showTyping() {
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = 'msg bot'; div.id = 'typing-indicator';
+  div.innerHTML = `<div class="avatar"><span>KP</span></div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function removeTyping() {
+  const el = document.getElementById('typing-indicator');
+  if (el) el.remove();
+}
+
+function delay(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function botReply(text, quickReplies, showBack) {
+  showTyping();
+  await delay(500);
+  removeTyping();
+  addMsg(text, false);
+  if (quickReplies) addQuickReplies(quickReplies, handleInput, showBack);
+}
+
+// 뒤로가기 히스토리 스택
+let stateHistory = [];
+
+function pushHistory() {
+  stateHistory.push({ state: session.state, data: JSON.parse(JSON.stringify(session.data)) });
+}
+
+function goBack() {
+  if (stateHistory.length === 0) { startMenu(); return; }
+  const prev = stateHistory.pop();
+  session.state = prev.state;
+  session.data = prev.data;
+  // 이전 상태로 돌아가서 해당 단계 다시 렌더링
+  replayState(prev.state, prev.data);
+}
+
+async function replayState(state, data) {
+  if (state === 'SELECT_PRODUCT') { startMenu(); return; }
+
+  const key = data.key;
+  const prod = data.product;
+
+  if (state === 'PC_COLOR') {
+    const colors = unique(INVENTORY.PC, '색상');
+    await botReply('[PC] 색상을 선택해 주세요.', colors.map(c => ({ label: c })), stateHistory.length > 0);
+  } else if (state === 'PC_TYPE') {
+    const items = getItems('PC', { 색상: data.색상 });
+    const types = unique(items, '품명');
+    await botReply(`색상: <b>${data.색상}</b><br>품명을 선택해 주세요.`, types.map(c => ({ label: c })), true);
+  } else if (state === 'PC_THICK') {
+    const items = getItems('PC', { 색상: data.색상, 품명: data.품명 });
+    const thicknesses = unique(items, '두께');
+    await botReply('두께를 선택해 주세요. (mm)', thicknesses.map(c => ({ label: c + 'mm' })), true);
+  } else if (state === 'PC_SPEC') {
+    const items = getItems('PC', { 색상: data.색상, 품명: data.품명, 두께: data.두께 });
+    const specs = items.map(i => ({ html: `${i.가로}×${i.세로} ${badgeHtml(i.현재고)}`, label: `${i.가로}×${i.세로}`, value: `${i.가로}|${i.세로}` }));
+    await botReply('규격(가로×세로)을 선택해 주세요.', specs, true);
+  } else if (state === 'LEXAN_PRODUCT') {
+    const products = unique(INVENTORY['렉산'], '제품');
+    await botReply('[렉산] 제품 종류를 선택해 주세요.', products.map(c => ({ label: c })), stateHistory.length > 0);
+  } else if (state === 'LEXAN_COLOR') {
+    const items = getItems('렉산', { 제품: data.제품 });
+    const colors = unique(items, '색상');
+    await botReply('색상을 선택해 주세요.', colors.map(c => ({ label: c })), true);
+  } else if (state === 'LEXAN_SPEC') {
+    const items = getItems('렉산', { 제품: data.제품, 색상: data.색상 });
+    const specs = items.map(i => ({ html: `${i.두께}mm / ${i.규격} ${badgeHtml(i.현재고)}`, label: `${i.두께}mm / ${i.규격}`, value: `${i.두께}|${i.규격}` }));
+    await botReply('규격을 선택해 주세요.', specs, true);
+  } else if (state === 'MW_BRAND') {
+    const brands = getMWBrands();
+    await botReply('[복층판] 종류를 선택해 주세요.', brands.map(b => ({ label: b.label, value: b.value })), stateHistory.length > 0);
+  } else if (state === 'MW_COLOR') {
+    const items = getItems('복층판', { 구분: data.구분 });
+    const colors = unique(items, '색상');
+    await botReply('색상을 선택해 주세요.', colors.map(c => ({ label: c })), true);
+  } else if (state === 'MW_SPEC') {
+    const items = getItems('복층판', { 구분: data.구분, 색상: data.색상 });
+    const specs = items.map(i => ({ html: `${i.두께} / ${i.규격} ${badgeHtml(i.현재고)}`, label: `${i.두께} / ${i.규격}`, value: `${i.두께}|${i.규격}` }));
+    await botReply('규격을 선택해 주세요.', specs, true);
+  } else if (state === 'FOMAT_COLOR') {
+    const colors = unique(INVENTORY['포마트'], '색상');
+    await botReply('[포마트] 색상을 선택해 주세요.', colors.map(c => ({ label: c })), stateHistory.length > 0);
+  } else if (state === 'FOMAT_THICK') {
+    const items = getItems('포마트', { 색상: data.색상 });
+    const thicknesses = unique(items, '두께');
+    await botReply('두께를 선택해 주세요. (mm)', thicknesses.map(c => ({ label: c + 'mm' })), true);
+  } else if (state === 'FOMAT_SPEC') {
+    const items = getItems('포마트', { 색상: data.색상, 두께: data.두께 });
+    const specs = items.map(i => ({ html: `${i.규격} ${badgeHtml(i.현재고)}`, label: i.규격, value: i.규격 }));
+    await botReply('규격을 선택해 주세요.', specs, true);
+  } else if (state === 'ACRYLIC_TYPE') {
+    const types = unique(INVENTORY['아크릴'], '구분');
+    await botReply('[아크릴] 종류를 선택해 주세요.', types.map(c => ({ label: c })), stateHistory.length > 0);
+  } else if (state === 'ACRYLIC_COLOR') {
+    const items = getItems('아크릴', { 구분: data.구분 });
+    const colors = unique(items, '색상').filter(c => !c.includes('합계'));
+    await botReply('색상을 선택해 주세요.', colors.map(c => ({ label: c })), true);
+  } else if (state === 'ACRYLIC_THICK') {
+    const items = getItems('아크릴', { 구분: data.구분, 색상: data.색상 });
+    const thicknesses = unique(items, '두께');
+    await botReply('두께를 선택해 주세요. (mm)', thicknesses.map(c => ({ label: c + 'mm' })), true);
+  } else if (state === 'ACRYLIC_SPEC') {
+    const items = getItems('아크릴', { 구분: data.구분, 색상: data.색상, 두께: data.두께 });
+    const specs = items.map(i => ({ label: i.규격, value: i.규격 }));
+    await botReply('규격을 선택해 주세요.', specs, true);
+  }
+}
+
+// 재고 뱃지 HTML (버튼 내부 렌더링용)
+function badgeHtml(n) {
+  if (n <= 0) return `<span class="badge-out">품절</span>`;
+  if (n <= 10) return `<span class="badge-warn">소량 ${n}장</span>`;
+  return `<span class="badge-ok">재고 ${n}장</span>`;
+}
+
+// 복층판 브랜드 목록 (에스폴 제외, 수입판/국산판만 표시)
+function getMWBrands() {
+  const raw = unique(INVENTORY['복층판'], '구분');
+  return raw
+    .filter(b => !b.includes('에스폴') && !b.includes('합계'))
+    .map(b => {
+      if (b === '렉산') return { label: '수입판', value: '렉산' };
+      if (b.includes('동신')) return { label: '국산판', value: b };
+      return { label: b, value: b };
+    });
+}
+
+function startMenu() {
+  stateHistory = [];
+  session = { state: 'SELECT_PRODUCT', data: {} };
+  botReply('안녕하세요! 👋<br><b>고려폴리머 K-SOS</b>입니다.<br>원하시는 제품을 선택해 주세요.',
+    Object.entries(PRODUCTS).map(([k, v]) => ({ label: v.name, value: k }))
+  );
+}
+
+async function handleInput(value, label) {
+  if (!label) label = value;
+  addMsg(label, true);
+  await delay(100);
+  const s = session.state;
+
+  // ── 제품 선택 ──────────────────────────────────────────
+  if (s === 'SELECT_PRODUCT') {
+    const prod = PRODUCTS[value];
+    if (!prod) { botReply('잘못된 선택입니다. 번호를 다시 입력해 주세요.'); return; }
+    pushHistory();
+    session.data.product = prod; session.data.key = prod.key;
+    if (prod.type === 'pc') {
+      session.state = 'PC_COLOR';
+      await botReply(`[PC] 색상을 선택해 주세요.`, unique(INVENTORY.PC,'색상').map(c=>({label:c})), true);
+    } else if (prod.type === 'lexan') {
+      session.state = 'LEXAN_PRODUCT';
+      await botReply(`[렉산] 제품 종류를 선택해 주세요.`, unique(INVENTORY['렉산'],'제품').map(c=>({label:c})), true);
+    } else if (prod.type === 'mw') {
+      session.state = 'MW_BRAND';
+      await botReply(`[복층판] 종류를 선택해 주세요.`, getMWBrands().map(b=>({label:b.label,value:b.value})), true);
+    } else if (prod.type === 'fomat') {
+      session.state = 'FOMAT_COLOR';
+      await botReply(`[포마트] 색상을 선택해 주세요.`, unique(INVENTORY['포마트'],'색상').map(c=>({label:c})), true);
+    } else if (prod.type === 'acrylic') {
+      session.state = 'ACRYLIC_TYPE';
+      await botReply(`[아크릴] 종류를 선택해 주세요.`, unique(INVENTORY['아크릴'],'구분').map(c=>({label:c})), true);
+    }
+  }
+
+  // ── PC ──────────────────────────────────────────────────
+  else if (s === 'PC_COLOR') {
+    pushHistory(); session.data.색상 = value;
+    const types = unique(getItems('PC',{색상:value}),'품명');
+    session.state = 'PC_TYPE';
+    await botReply(`색상: <b>${value}</b><br>품명을 선택해 주세요.`, types.map(c=>({label:c})), true);
+  }
+  else if (s === 'PC_TYPE') {
+    pushHistory(); session.data.품명 = value;
+    const thicknesses = unique(getItems('PC',{색상:session.data.색상,품명:value}),'두께');
+    session.state = 'PC_THICK';
+    await botReply(`두께를 선택해 주세요. (mm)`, thicknesses.map(c=>({label:c+'mm'})), true);
+  }
+  else if (s === 'PC_THICK') {
+    pushHistory();
+    session.data.두께 = value.replace('mm','');
+    session.state = 'PC_ORDER_TYPE';
+    await botReply(`구매 방식을 선택해 주세요.`, [
+      {label:'규격판 선택 (재고 규격)', value:'stock'},
+      {label:'재단규격 주문 (원하는 치수)', value:'custom'}
+    ], true);
+  }
+  else if (s === 'PC_ORDER_TYPE') {
+    pushHistory(); session.data.주문유형 = value;
+    if (value === 'stock') {
+      const items = getItems('PC',{색상:session.data.색상,품명:session.data.품명,두께:session.data.두께});
+      if (!items.length) { await botReply('해당 두께의 재고가 없습니다. 담당자에게 문의해 주세요.'); resetPrompt(); return; }
+      const specs = [...new Map(items.map(i=>[`${cleanDim(i.가로)}×${cleanDim(i.세로)}`,i])).values()]
+        .map(i=>({label:`${cleanDim(i.가로)}×${cleanDim(i.세로)}`, value:`${i.가로}|${i.세로}`}));
+      session.state = 'PC_SPEC';
+      await botReply(`규격을 선택해 주세요. (단위: mm)`, specs, true);
+    } else {
+      session.state = 'PC_CUSTOM';
+      await botReply(CUSTOM_NOTICE);
+    }
+  }
+  else if (s === 'PC_SPEC') {
+    const [가로,세로] = value.split('|');
+    const items = getItems('PC',{색상:session.data.색상,품명:session.data.품명,두께:session.data.두께,가로,세로});
+    const stock = items.reduce((s,i)=>s+i.현재고,0);
+    if (stock<=0) { await botReply('해당 규격은 품절입니다. 담당자에게 문의해 주세요. 📞'); resetPrompt(); return; }
+    session.data.가로=가로; session.data.세로=세로; session.data.재고=stock;
+    session.state = 'PC_QTY';
+    await botReply(`${session.data.색상} ${session.data.품명} ${session.data.두께}mm / ${cleanDim(가로)}×${cleanDim(세로)}<br>필요 수량(장)을 입력해 주세요.`);
+  }
+  else if (s === 'PC_CUSTOM') {
+    const m = value.replace(/\s/g,'').match(/^(\d+)[×x\*](\d+)$/);
+    if (!m) { await botReply('형식이 맞지 않습니다. 예: 500×800 또는 500*800'); return; }
+    session.data.재단가로=m[1]; session.data.재단세로=m[2];
+    session.state = 'PC_QTY';
+    await botReply(`재단치수: <b>${m[1]} × ${m[2]} mm</b> 확인됐습니다.<br>필요 수량(장)을 입력해 주세요.`);
+  }
+  else if (s === 'PC_QTY') {
+    const qty = parseInt(value);
+    if (isNaN(qty)||qty<=0) { await botReply('숫자로 입력해 주세요.'); return; }
+    session.data.수량=qty; submitOrder();
+  }
+
+  // ── 렉산 ────────────────────────────────────────────────
+  else if (s === 'LEXAN_PRODUCT') {
+    pushHistory(); session.data.제품=value;
+    const colors = unique(getItems('렉산',{제품:value}),'색상');
+    session.state='LEXAN_COLOR';
+    await botReply(`색상을 선택해 주세요.`, colors.map(c=>({label:c})), true);
+  }
+  else if (s === 'LEXAN_COLOR') {
+    pushHistory(); session.data.색상=value;
+    const thicknesses = unique(getItems('렉산',{제품:session.data.제품,색상:value}),'두께');
+    session.state='LEXAN_THICK';
+    await botReply(`두께를 선택해 주세요. (mm)`, thicknesses.map(c=>({label:c+'mm'})), true);
+  }
+  else if (s === 'LEXAN_THICK') {
+    pushHistory(); session.data.두께=value.replace('mm','');
+    session.state='LEXAN_ORDER_TYPE';
+    await botReply(`구매 방식을 선택해 주세요.`, [
+      {label:'규격판 선택 (재고 규격)', value:'stock'},
+      {label:'재단규격 주문 (원하는 치수)', value:'custom'}
+    ], true);
+  }
+  else if (s === 'LEXAN_ORDER_TYPE') {
+    pushHistory(); session.data.주문유형=value;
+    if (value==='stock') {
+      const items = getItems('렉산',{제품:session.data.제품,색상:session.data.색상,두께:session.data.두께});
+      const specs = [...new Map(items.map(i=>[i.규격,i])).values()]
+        .map(i=>({label:i.규격, value:i.규격}));
+      session.state='LEXAN_SPEC';
+      await botReply(`규격을 선택해 주세요.`, specs, true);
+    } else {
+      session.state='LEXAN_CUSTOM';
+      await botReply(CUSTOM_NOTICE);
+    }
+  }
+  else if (s === 'LEXAN_SPEC') {
+    const items = getItems('렉산',{제품:session.data.제품,색상:session.data.색상,두께:session.data.두께,규격:value});
+    const stock = items.reduce((s,i)=>s+i.현재고,0);
+    if (stock<=0) { await botReply('해당 규격은 품절입니다. 담당자에게 문의해 주세요.'); resetPrompt(); return; }
+    session.data.규격=value; session.data.재고=stock;
+    session.state='LEXAN_QTY';
+    await botReply(`렉산 ${session.data.제품} ${session.data.색상} ${session.data.두께}mm (${value})<br>필요 수량(장)을 입력해 주세요.`);
+  }
+  else if (s === 'LEXAN_CUSTOM') {
+    const m = value.replace(/\s/g,'').match(/^(\d+)[×x\*](\d+)$/);
+    if (!m) { await botReply('형식이 맞지 않습니다. 예: 500×800 또는 500*800'); return; }
+    session.data.재단가로=m[1]; session.data.재단세로=m[2];
+    session.state='LEXAN_QTY';
+    await botReply(`재단치수: <b>${m[1]} × ${m[2]} mm</b><br>필요 수량(장)을 입력해 주세요.`);
+  }
+  else if (s === 'LEXAN_QTY') {
+    const qty = parseInt(value);
+    if (isNaN(qty)||qty<=0) { await botReply('숫자로 입력해 주세요.'); return; }
+    session.data.수량=qty; submitOrder();
+  }
+
+  // ── 복층판 ──────────────────────────────────────────────
+  else if (s === 'MW_BRAND') {
+    pushHistory();
+    session.data.구분 = value;
+    // 표시명 저장 (수입판/국산판)
+    const brandMap = { '렉산': '수입판', '동신': '국산판' };
+    session.data.구분표시 = Object.entries(brandMap).find(([k]) => value.includes(k))?.[1] || value;
+    const colors = unique(getItems('복층판',{구분:value}),'색상');
+    session.state='MW_COLOR';
+    await botReply(`색상을 선택해 주세요.`, colors.map(c=>({label:c})), true);
+  }
+  else if (s === 'MW_COLOR') {
+    pushHistory(); session.data.색상=value;
+    const thicknesses = unique(getItems('복층판',{구분:session.data.구분,색상:value}),'두께');
+    session.state='MW_THICK';
+    await botReply(`두께를 선택해 주세요.`, thicknesses.map(c=>({label:c})), true);
+  }
+  else if (s === 'MW_THICK') {
+    pushHistory(); session.data.두께=value;
+    session.state='MW_ORDER_TYPE';
+    await botReply(`구매 방식을 선택해 주세요.`, [
+      {label:'규격판 선택 (재고 규격)', value:'stock'},
+      {label:'재단규격 주문 (원하는 치수)', value:'custom'}
+    ], true);
+  }
+  else if (s === 'MW_ORDER_TYPE') {
+    pushHistory(); session.data.주문유형=value;
+    if (value==='stock') {
+      const items = getItems('복층판',{구분:session.data.구분,색상:session.data.색상,두께:session.data.두께});
+      const specs = [...new Map(items.map(i=>[i.규격,i])).values()]
+        .map(i=>({label:i.규격, value:i.규격}));
+      session.state='MW_SPEC';
+      await botReply(`규격을 선택해 주세요.`, specs, true);
+    } else {
+      session.state='MW_CUSTOM';
+      await botReply(CUSTOM_NOTICE);
+    }
+  }
+  else if (s === 'MW_SPEC') {
+    const items = getItems('복층판',{구분:session.data.구분,색상:session.data.색상,두께:session.data.두께,규격:value});
+    const stock = items.reduce((s,i)=>s+i.현재고,0);
+    if (stock<=0) { await botReply('해당 규격은 품절입니다.'); resetPrompt(); return; }
+    session.data.규격=value; session.data.재고=stock;
+    session.state='MW_QTY';
+    await botReply(`복층판 ${session.data.색상} ${session.data.두께} (${value})<br>필요 수량을 입력해 주세요.`);
+  }
+  else if (s === 'MW_CUSTOM') {
+    const m = value.replace(/\s/g,'').match(/^(\d+)[×x\*](\d+)$/);
+    if (!m) { await botReply('형식이 맞지 않습니다. 예: 500×800'); return; }
+    session.data.재단가로=m[1]; session.data.재단세로=m[2];
+    session.state='MW_QTY';
+    await botReply(`재단치수: <b>${m[1]} × ${m[2]} mm</b><br>필요 수량을 입력해 주세요.`);
+  }
+  else if (s === 'MW_QTY') {
+    const qty = parseInt(value);
+    if (isNaN(qty)||qty<=0) { await botReply('숫자로 입력해 주세요.'); return; }
+    session.data.수량=qty; submitOrder();
+  }
+
+  // ── 포마트 ──────────────────────────────────────────────
+  else if (s === 'FOMAT_COLOR') {
+    pushHistory(); session.data.색상=value;
+    const thicknesses = unique(getItems('포마트',{색상:value}),'두께');
+    session.state='FOMAT_THICK';
+    await botReply(`두께를 선택해 주세요. (mm)`, thicknesses.map(c=>({label:c+'mm'})), true);
+  }
+  else if (s === 'FOMAT_THICK') {
+    pushHistory(); session.data.두께=value.replace('mm','');
+    session.state='FOMAT_ORDER_TYPE';
+    await botReply(`구매 방식을 선택해 주세요.`, [
+      {label:'규격판 선택 (재고 규격)', value:'stock'},
+      {label:'재단규격 주문 (원하는 치수)', value:'custom'}
+    ], true);
+  }
+  else if (s === 'FOMAT_ORDER_TYPE') {
+    pushHistory(); session.data.주문유형=value;
+    if (value==='stock') {
+      const items = getItems('포마트',{색상:session.data.색상,두께:session.data.두께});
+      const specs = [...new Map(items.map(i=>[i.규격,i])).values()]
+        .map(i=>({label:i.규격, value:i.규격}));
+      session.state='FOMAT_SPEC';
+      await botReply(`규격을 선택해 주세요.`, specs, true);
+    } else {
+      session.state='FOMAT_CUSTOM';
+      await botReply(CUSTOM_NOTICE);
+    }
+  }
+  else if (s === 'FOMAT_SPEC') {
+    const items = getItems('포마트',{색상:session.data.색상,두께:session.data.두께,규격:value});
+    const stock = items.reduce((s,i)=>s+i.현재고,0);
+    if (stock<=0) { await botReply('해당 규격은 품절입니다.'); resetPrompt(); return; }
+    session.data.규격=value; session.data.재고=stock;
+    session.state='FOMAT_QTY';
+    await botReply(`포마트 ${session.data.색상} ${session.data.두께}mm (${value})<br>필요 수량(장)을 입력해 주세요.`);
+  }
+  else if (s === 'FOMAT_CUSTOM') {
+    const m = value.replace(/\s/g,'').match(/^(\d+)[×x\*](\d+)$/);
+    if (!m) { await botReply('형식이 맞지 않습니다. 예: 500×800'); return; }
+    session.data.재단가로=m[1]; session.data.재단세로=m[2];
+    session.state='FOMAT_QTY';
+    await botReply(`재단치수: <b>${m[1]} × ${m[2]} mm</b><br>필요 수량(장)을 입력해 주세요.`);
+  }
+  else if (s === 'FOMAT_QTY') {
+    const qty = parseInt(value);
+    if (isNaN(qty)||qty<=0) { await botReply('숫자로 입력해 주세요.'); return; }
+    session.data.수량=qty; submitOrder();
+  }
+
+  // ── 아크릴 ──────────────────────────────────────────────
+  else if (s === 'ACRYLIC_TYPE') {
+    pushHistory(); session.data.구분=value;
+    const colors = unique(getItems('아크릴',{구분:value}),'색상').filter(c=>!c.includes('합계'));
+    session.state='ACRYLIC_COLOR';
+    await botReply(`색상을 선택해 주세요.`, colors.map(c=>({label:c})), true);
+  }
+  else if (s === 'ACRYLIC_COLOR') {
+    pushHistory(); session.data.색상=value;
+    const thicknesses = unique(getItems('아크릴',{구분:session.data.구분,색상:value}),'두께');
+    session.state='ACRYLIC_THICK';
+    await botReply(`두께를 선택해 주세요. (mm)`, thicknesses.map(c=>({label:c+'mm'})), true);
+  }
+  else if (s === 'ACRYLIC_THICK') {
+    pushHistory(); session.data.두께=value.replace('mm','');
+    session.state='ACRYLIC_ORDER_TYPE';
+    await botReply(`구매 방식을 선택해 주세요.`, [
+      {label:'규격판 선택 (재고 규격)', value:'stock'},
+      {label:'재단규격 주문 (원하는 치수)', value:'custom'}
+    ], true);
+  }
+  else if (s === 'ACRYLIC_ORDER_TYPE') {
+    pushHistory(); session.data.주문유형=value;
+    if (value==='stock') {
+      const items = getItems('아크릴',{구분:session.data.구분,색상:session.data.색상,두께:session.data.두께});
+      const specs = [...new Map(items.map(i=>[i.규격,i])).values()]
+        .map(i=>({label:i.규격, value:i.규격}));
+      session.state='ACRYLIC_SPEC';
+      await botReply(`규격을 선택해 주세요.`, specs, true);
+    } else {
+      session.state='ACRYLIC_CUSTOM';
+      await botReply(CUSTOM_NOTICE);
+    }
+  }
+  else if (s === 'ACRYLIC_SPEC') {
+    const items = getItems('아크릴',{구분:session.data.구분,색상:session.data.색상,두께:session.data.두께,규격:value});
+    const stock = items.reduce((s,i)=>s+i.현재고,0);
+    if (stock<=0) { await botReply('해당 규격은 품절입니다.'); resetPrompt(); return; }
+    session.data.규격=value; session.data.재고=stock;
+    session.state='ACRYLIC_QTY';
+    await botReply(`아크릴 ${session.data.구분} ${session.data.색상} ${session.data.두께}mm (${value})<br>필요 수량(장)을 입력해 주세요.`);
+  }
+  else if (s === 'ACRYLIC_CUSTOM') {
+    const m = value.replace(/\s/g,'').match(/^(\d+)[×x\*](\d+)$/);
+    if (!m) { await botReply('형식이 맞지 않습니다. 예: 500×800'); return; }
+    session.data.재단가로=m[1]; session.data.재단세로=m[2];
+    session.state='ACRYLIC_QTY';
+    await botReply(`재단치수: <b>${m[1]} × ${m[2]} mm</b><br>필요 수량(장)을 입력해 주세요.`);
+  }
+  else if (s === 'ACRYLIC_QTY') {
+    const qty = parseInt(value);
+    if (isNaN(qty)||qty<=0) { await botReply('숫자로 입력해 주세요.'); return; }
+    session.data.수량=qty; submitOrder();
+  }
+}
+
+async function submitOrder() {
+  const d = session.data;
+  const prod = d.product;
+  const ts = new Date().toLocaleString('ko-KR');
+  const orderNo = 'KP' + Date.now().toString().slice(-6);
+
+  let summary = `<b>주문 접수 완료 ✅</b><br><br>`;
+  summary += `주문번호: <b>${orderNo}</b><br>`;
+  summary += `일시: ${ts}<br>`;
+  summary += `제품: <b>${prod.name}</b><br>`;
+  if (d.품명) summary += `품명: ${d.품명}<br>`;
+  if (d.제품) summary += `제품: ${d.제품}<br>`;
+  if (d.구분표시) summary += `구분: ${d.구분표시}<br>`;
+  else if (d.구분 && !['수입판','국산판'].includes(d.구분)) summary += `구분: ${d.구분}<br>`;
+  if (d.색상) summary += `색상: ${d.색상}<br>`;
+  if (d.두께) summary += `두께: ${d.두께}mm<br>`;
+  if (d.주문유형 === 'custom') {
+    summary += `주문유형: <b>재단규격</b><br>`;
+    summary += `재단치수: <b>${d.재단가로} × ${d.재단세로} mm</b><br>`;
+  } else {
+    if (d.규격) summary += `규격: ${d.규격}<br>`;
+    if (d.가로 && d.세로) summary += `규격: ${cleanDim(d.가로)}×${cleanDim(d.세로)}<br>`;
+  }
+  summary += `수량: <b>${d.수량}장</b><br><br>`;
+  summary += `담당자가 확인 후 연락드리겠습니다.<br>📞 051-644-8877 · 010-8025-5575`;
+
+  orderLog.push({ orderNo, ts, ...d });
+  session = { state: 'DONE', data: {} };
+
+  await botReply(summary);
+  await delay(600);
+
+  // 메인으로 버튼 별도 렌더링
+  const area = document.getElementById('chatArea');
+  const div = document.createElement('div');
+  div.className = 'msg bot';
+  div.innerHTML = `
+    <div class="avatar"><span>KP</span></div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+      <button class="home-btn" onclick="startMenu()">&#8962; 메인으로 돌아가기</button>
+      <div class="quick-replies">
+        <button class="qr-btn" onclick="startMenu()">추가 주문하기</button>
+        <button class="qr-btn" onclick="addMsg('감사합니다. 이용해 주셔서 감사합니다. 😊', false); this.closest('.msg').remove(); session.state='DONE';">상담 종료</button>
+      </div>
+    </div>`;
+  area.appendChild(div);
+  area.scrollTop = area.scrollHeight;
+}
+
+function resetPrompt() {
+  setTimeout(() => {
+    addQuickReplies([{ label: '처음으로', value: '__RESTART__' }], handleInput);
+  }, 300);
+}
+
+function handleSend() {
+  const input = document.getElementById('userInput');
+  const val = input.value.trim();
+  if (!val) return;
+  input.value = '';
+
+  if (val === '__RESTART__' || session.state === 'DONE' || session.state === 'INIT') {
+    startMenu();
+    return;
+  }
+  handleInput(val, val);
+}
+
+document.getElementById('userInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') handleSend();
+});
+
+// 특수값 처리
+const _origHandle = handleInput;
+window.handleInput = async function(value, label) {
+  if (value === '__RESTART__') { startMenu(); return; }
+  if (value === '__END__') { addMsg('감사합니다. 이용해 주셔서 감사합니다. 😊', false); session.state = 'DONE'; return; }
+  await _origHandle(value, label);
+};
+
+// 시작
+window.onload = () => {
+  setTimeout(startMenu, 400);
+};
+</script>
+</body>
+</html>
