@@ -89,6 +89,19 @@
   /* 재단주문 입력 안내박스 */
   .custom-notice { background: #f0f7ff; border: 1px solid #bdd7f5; border-radius: 10px; padding: 10px 13px; font-size: 12.5px; line-height: 1.7; color: #1e3a5f; margin-top: 4px; }
 
+  /* 고객정보 입력 폼 */
+  .contact-form { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; display: flex; flex-direction: column; gap: 10px; max-width: 82%; }
+  .contact-form .form-row { display: flex; flex-direction: column; gap: 4px; }
+  .contact-form label { font-size: 12px; color: #475569; font-weight: 500; }
+  .contact-form .req { color: #e53e3e; margin-left: 2px; }
+  .contact-form .opt { font-size: 11px; color: #94a3b8; margin-left: 4px; }
+  .contact-form input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 8px 11px; font-size: 13.5px; font-family: inherit; color: #1e293b; outline: none; transition: border 0.15s; }
+  .contact-form input:focus { border-color: #1a3a5c; }
+  .contact-form input::placeholder { color: #94a3b8; }
+  .contact-form .submit-btn { background: #1a3a5c; color: #fff; border: none; border-radius: 10px; padding: 10px; font-size: 14px; font-weight: 600; cursor: pointer; font-family: inherit; transition: background 0.15s; margin-top: 2px; }
+  .contact-form .submit-btn:hover { background: #243f5e; }
+  .contact-form .form-note { font-size: 11px; color: #94a3b8; text-align: center; }
+
 </style>
 </head>
 <body>
@@ -255,7 +268,11 @@ function goBack() {
 }
 
 async function replayState(state, data) {
-  if (state === 'SELECT_PRODUCT') { startMenu(); return; }
+  if (state === 'INPUT_CONTACT') { startMenu(); return; }
+  if (state === 'SELECT_PRODUCT') {
+    await botReply('견적을 원하시는 제품을 선택해 주세요.',
+      Object.entries(PRODUCTS).map(([k, v]) => ({ label: v.name, value: k }))); return;
+  }
 
   const key = data.key;
   const prod = data.product;
@@ -347,8 +364,99 @@ function getMWBrands() {
 
 function startMenu() {
   stateHistory = [];
-  session = { state: 'SELECT_PRODUCT', data: {} };
-  botReply('안녕하세요! 👋<br><b>고려폴리머 K-SOS</b>입니다.<br>견적·상담을 원하시는 제품을 선택해 주세요.',
+  session = { state: 'INPUT_CONTACT', data: {} };
+  showContactForm();
+}
+
+function showContactForm() {
+  const area = document.getElementById('chatArea');
+
+  // 인삿말 버블
+  const greetDiv = document.createElement('div');
+  greetDiv.className = 'msg bot';
+  greetDiv.innerHTML = `<div class="avatar"><span>KP</span></div><div class="bubble">안녕하세요! 👋<br><b>고려폴리머 K-SOS</b>입니다.<br>견적·상담을 시작하기 전에<br>아래 정보를 입력해 주세요.</div>`;
+  area.appendChild(greetDiv);
+
+  // 폼 버블
+  const formDiv = document.createElement('div');
+  formDiv.className = 'msg bot';
+  formDiv.id = 'contact-form-msg';
+  formDiv.innerHTML = `
+    <div class="avatar"><span>KP</span></div>
+    <div class="contact-form">
+      <div class="form-row">
+        <label>업체명 (상호)<span class="req">*</span></label>
+        <input type="text" id="cf-company" placeholder="예: 홍길동인테리어" />
+      </div>
+      <div class="form-row">
+        <label>전화번호<span class="req">*</span></label>
+        <input type="tel" id="cf-phone" placeholder="예: 010-1234-5678" />
+      </div>
+      <div class="form-row">
+        <label>이메일 주소<span class="opt">(선택)</span></label>
+        <input type="email" id="cf-email" placeholder="예: example@gmail.com" />
+      </div>
+      <div class="form-row">
+        <label>팩스 번호<span class="opt">(선택)</span></label>
+        <input type="text" id="cf-fax" placeholder="예: 051-000-0000" />
+      </div>
+      <button class="submit-btn" onclick="submitContact()">상담 시작하기 →</button>
+      <p class="form-note"><span class="req">*</span> 필수 입력 항목</p>
+    </div>`;
+  area.appendChild(formDiv);
+  area.scrollTop = area.scrollHeight;
+
+  // Enter 키로 다음 필드 이동
+  setTimeout(() => {
+    const ids = ['cf-company', 'cf-phone', 'cf-email', 'cf-fax'];
+    ids.forEach((id, i) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('keydown', e => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          const next = document.getElementById(ids[i + 1]);
+          if (next) next.focus(); else submitContact();
+        }
+      });
+    });
+    document.getElementById('cf-company')?.focus();
+  }, 100);
+}
+
+async function submitContact() {
+  const company = document.getElementById('cf-company')?.value.trim();
+  const phone   = document.getElementById('cf-phone')?.value.trim();
+  const email   = document.getElementById('cf-email')?.value.trim();
+  const fax     = document.getElementById('cf-fax')?.value.trim();
+
+  // 필수값 검증
+  if (!company) {
+    document.getElementById('cf-company').focus();
+    document.getElementById('cf-company').style.borderColor = '#e53e3e';
+    return;
+  }
+  if (!phone) {
+    document.getElementById('cf-phone').focus();
+    document.getElementById('cf-phone').style.borderColor = '#e53e3e';
+    return;
+  }
+
+  // 세션 저장
+  session.data.업체명    = company;
+  session.data.전화번호   = phone;
+  session.data.고객이메일 = email || '없음';
+  session.data.팩스번호   = fax   || '없음';
+
+  // 폼 제거 후 확인 메시지
+  const formMsg = document.getElementById('contact-form-msg');
+  if (formMsg) formMsg.remove();
+
+  addMsg(`${company} / ${phone}${email ? ' / ' + email : ''}${fax ? ' / FAX: ' + fax : ''}`, true);
+
+  session.state = 'SELECT_PRODUCT';
+  await botReply(
+    `감사합니다, <b>${company}</b>님.<br>견적을 원하시는 제품을 선택해 주세요.`,
     Object.entries(PRODUCTS).map(([k, v]) => ({ label: v.name, value: k }))
   );
 }
@@ -358,6 +466,12 @@ async function handleInput(value, label) {
   addMsg(label, true);
   await delay(100);
   const s = session.state;
+
+  // ── 고객 정보 수집 (폼 제출 처리) ──────────────────────
+  if (s === 'INPUT_CONTACT') {
+    // showContactForm()에서 직접 submitContact() 호출하므로 여기는 도달 안 함
+    return;
+  }
 
   // ── 제품 선택 ──────────────────────────────────────────
   if (s === 'SELECT_PRODUCT') {
@@ -679,7 +793,13 @@ async function submitOrder() {
   let summary = `<b>견적 요청 접수 완료 ✅</b><br><br>`;
   summary += `접수번호: <b>${quoteNo}</b><br>`;
   summary += `접수일시: ${ts}<br><br>`;
-  summary += `<b>─ 요청 내용 ─</b><br>`;
+  summary += `<b>─ 고객 정보 ─</b><br>`;
+  summary += `업체명: ${d.업체명 || ''}<br>`;
+  summary += `연락처: ${d.전화번호 || ''}<br>`;
+  if (d.고객이메일 && d.고객이메일 !== '없음') summary += `이메일: ${d.고객이메일}<br>`;
+  if (d.팩스번호 && d.팩스번호 !== '없음') summary += `팩스: ${d.팩스번호}<br>`;
+  summary += `<br>`;
+  summary += `<b>─ 견적 내용 ─</b><br>`;
   summary += `제품: <b>${prod.name}</b><br>`;
   if (d.품명) summary += `품명: ${d.품명}<br>`;
   if (d.제품) summary += `제품명: ${d.제품}<br>`;
@@ -701,15 +821,19 @@ async function submitOrder() {
   if (EMAILJS_SERVICE_ID && EMAILJS_TEMPLATE_ID && EMAILJS_PUBLIC_KEY) {
     try {
       await emailjs.send(EMAILJS_SERVICE_ID, EMAILJS_TEMPLATE_ID, {
-        order_no:   quoteNo,
-        timestamp:  ts,
-        product:    prod.name,
-        brand:      d.구분표시 || d.구분 || '',
-        color:      d.색상 || '',
-        thickness:  d.두께 ? d.두께 + 'mm' : '',
-        spec:       specText,
-        order_type: d.주문유형 === 'custom' ? '재단 주문' : '규격판',
-        qty:        d.수량 + '장',
+        order_no:       quoteNo,
+        timestamp:      ts,
+        company:        d.업체명 || '',
+        phone:          d.전화번호 || '',
+        customer_email: d.고객이메일 || '',
+        fax:            d.팩스번호 || '',
+        product:        prod.name,
+        brand:          d.구분표시 || d.구분 || '',
+        color:          d.색상 || '',
+        thickness:      d.두께 ? d.두께 + 'mm' : '',
+        spec:           specText,
+        order_type:     d.주문유형 === 'custom' ? '재단 주문' : '규격판',
+        qty:            d.수량 + '장',
       }, EMAILJS_PUBLIC_KEY);
       console.log('견적 이메일 발송 완료');
     } catch(e) {
